@@ -3,7 +3,7 @@ SQUIRK is a modular development platform designed to help developers quickly and
 
 ## Prerequisites
 - **Git:** To clone the repository.
-- **Python 3.7 or higher:** Required for running the setup and the SQK interpreter.
+- **Python 3.7 or higher:** Required for running the setup and the SQK interpreter (make sure python is included in PATH).
 
 ## Installation via Repository
 1. **Clone the Repository:** Clone the repository with all required files for the installer.
