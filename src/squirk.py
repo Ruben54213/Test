@@ -3,6 +3,10 @@
 import sys
 import os
 import ctypes
+import json
+from http.server import BaseHTTPRequestHandler, HTTPServer
+import time
+from datetime import datetime
 
 # Presets für verschiedene Dateitypen
 PRESETS = {
@@ -18,10 +22,24 @@ PRESETS = {
 
 def show_help():
     print("SQUIRK Help")
-    print("--help                                    Show this help message.")
-    print("--presets                                 List all available file presets.")
-    print("init <project_name>                       Initialize a new SQUIRK project.")
-    print('initf "<folder>" <type> <name> [preset]   Create a new file in the specified folder with the given type.')
+    print("--help                                                       Show this help message.")
+    print("--presets                                                    List all available file presets.")
+    print("--server start                                               Starts/Stops a local SQUIRK Server.")
+    print('init <project_name> <author> "<description>" <info - yes/no>   Initialize a new SQUIRK project.')
+    print('initf "<folder>" <type> <name> <preset>                      Create a new file in the specified folder with the given type.')
+
+hostName = "localhost"
+serverPort = 5000
+
+class MyServer(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/html")
+        self.end_headers()
+        self.wfile.write(bytes("<html><head><title>SQUIRK Local Server</title></head>", "utf-8"))
+        self.wfile.write(bytes("<body>", "utf-8"))
+        self.wfile.write(bytes("<p>This is a SQUIRK Local Server.</p>", "utf-8"))
+        self.wfile.write(bytes("</body></html>", "utf-8"))
 
 def show_presets():
     """Zeigt die verfügbaren Presets an."""
@@ -50,7 +68,29 @@ def create_instructions_file(project_path):
     with open(instructions_path, "w") as file:
         file.write(instructions_content)
 
-def init_project(project_name):
+def create_metadata_file(project_path, author=None, description=None):
+    """Erstellt die metadata.json Datei im angegebenen Projektpfad."""
+    metadata = {
+        "author": author if author else "Unknown",
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "description": description if description else ""
+    }
+
+    metadata_path = os.path.join(project_path, "metadata.json")
+    with open(metadata_path, "w") as file:
+        json.dump(metadata, file, indent=4)
+    print(f"metadata.json file created in '{project_path}'.")
+
+def create_information_file(project_path, description):
+    """Erstellt die INFORMATION.md Datei im angegebenen Projektpfad."""
+    information_content = f"# Project Information\n\n{description}\n"
+
+    information_path = os.path.join(project_path, "INFORMATION.md")
+    with open(information_path, "w") as file:
+        file.write(information_content)
+    print(f"INFORMATION.md file created in '{project_path}'.")
+
+def init_project(project_name, author=None, description=None, create_markdown=False):
     """Initialisiert ein neues SQUIRK-Projekt."""
     if not project_name:
         print("Error: No project name provided.")
@@ -78,7 +118,12 @@ def init_project(project_name):
         
         # INSTRUCTIONS.txt Datei erstellen
         create_instructions_file(project_path)
-        print(f"INSTRUCTIONS.txt file created in '{project_path}'.")
+        # metadata.json Datei erstellen
+        create_metadata_file(project_path, author, description)
+        
+        # INFORMATION.md Datei erstellen, wenn gewünscht
+        if create_markdown:
+            create_information_file(project_path, description)
 
 def create_file(folder, file_type, name, preset=None):
     """Erstellt eine Datei im angegebenen Ordner mit dem spezifizierten Dateityp."""
@@ -102,15 +147,50 @@ def create_file(folder, file_type, name, preset=None):
             file.write(f"# File created with SQUIRK\n")
         print(f"File '{file_path}' created successfully.")
 
+def start_server():
+    webServer = HTTPServer((hostName, serverPort), MyServer)
+    print(f"Server started at http://{hostName}:{serverPort}")
+
+    try:
+        webServer.serve_forever()
+    except KeyboardInterrupt:
+        pass
+
+    webServer.server_close()
+    print("Server stopped.")
+
+def parse_description(description_args):
+    """Parst die Beschreibung aus den Argumenten."""
+    return ' '.join(description_args).strip('"')
+
 def main():
     if len(sys.argv) > 1:
         if sys.argv[1] == "--help":
             show_help()
+        elif sys.argv[1] == "--version":
+            print("Current version: Alpha v.0.1.0")
         elif sys.argv[1] == "--presets":
             show_presets()
+        elif sys.argv[1] == "--server":
+            if len(sys.argv) > 2 and sys.argv[2] == "start":
+                start_server()
+            else:
+                print("Unknown command. Use --help for available commands.")
         elif sys.argv[1] == "init":
             if len(sys.argv) > 2:
-                init_project(sys.argv[2])
+                project_name = sys.argv[2]
+                author = sys.argv[3] if len(sys.argv) > 3 else None
+                # Parsing description and markdown creation flag
+                description_args = []
+                create_markdown = False
+                if len(sys.argv) > 4:
+                    if sys.argv[-1].lower() in ['yes', 'no']:
+                        create_markdown = sys.argv[-1].lower() == 'yes'
+                        description_args = sys.argv[4:-1]
+                    else:
+                        description_args = sys.argv[4:]
+                description = parse_description(description_args)
+                init_project(project_name, author, description, create_markdown)
             else:
                 print("Error: No project name provided.")
         elif sys.argv[1] == "initf":
@@ -125,7 +205,7 @@ def main():
         else:
             print("Unknown command. Use --help for available commands.")
     else:
-        print("Executing SQUIRK command...")
+        print("Unknown command. Use --help for available commands.")
 
 if __name__ == "__main__":
     main()
