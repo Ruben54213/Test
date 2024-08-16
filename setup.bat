@@ -11,7 +11,7 @@ if '%errorlevel%' neq '0' (
 set "INSTALL_DIR=C:\Users\felix\Documents\GitHub\SQUIRK\src"
 set "SCRIPT_NAME=squirk.py"
 
-set "BATCH_DIR=%ProgramFiles%\SQUIRK\bin"
+set "BATCH_DIR=C:\SQUIRK\bin"
 
 if not exist "%BATCH_DIR%" (
     echo Creating directory "%BATCH_DIR%"...
