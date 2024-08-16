@@ -18,3 +18,11 @@ SQUIRK is a modular development platform designed to help developers quickly and
    ```
    setup.bat
    ```
+
+## Usage
+After you installed SQUIRK and the SQK interpreter, you now can open a new console and type in the command:
+
+   ```
+   squirk --help
+   ```
+This will show all commands of the current version of squirk.
