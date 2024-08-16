@@ -9,6 +9,9 @@ SQUIRK is a modular development platform designed to help developers quickly and
 [![Contributors](https://img.shields.io/github/contributors/acariustv/SQUIRK)](https://github.com/acariustv/SQUIRK/graphs/contributors)
 [![Code Size](https://img.shields.io/github/languages/code-size/acariustv/SQUIRK)](https://github.com/acariustv/SQUIRK)
 [![Top Language](https://img.shields.io/github/languages/top/acariustv/SQUIRK)](https://github.com/acariustv/SQUIRK)
+[![Platform](https://img.shields.io/badge/platform-windows-blue.svg)](https://github.com/acariustv/SQUIRK)
+
+
 
 ## Prerequisites
 - **Git:** To clone the repository.
