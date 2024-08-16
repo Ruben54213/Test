@@ -1,27 +1,29 @@
 @echo off
 setlocal
 
-REM Verzeichnis, in dem sich das Python-Skript befindet
+net session >nul 2>&1
+if '%errorlevel%' neq '0' (
+    echo Requesting elevation...
+    powershell -Command "Start-Process '%~f0' -Verb RunAs"
+    exit /b
+)
+
 set "INSTALL_DIR=C:\Users\felix\Documents\GitHub\SQUIRK\src"
 set "SCRIPT_NAME=squirk.py"
 
-REM Verzeichnis für die Batch-Datei erstellen (inklusive automatischer Verzeichnis-Erstellung)
 set "BATCH_DIR=%ProgramFiles%\SQUIRK\bin"
 
-REM Überprüfen, ob das Verzeichnis bereits existiert
 if not exist "%BATCH_DIR%" (
     echo Creating directory "%BATCH_DIR%"...
     mkdir "%BATCH_DIR%"
 )
 
-REM Batch-Datei erstellen
 echo Creating batch file "squirk.bat"...
 (
     echo @echo off
     echo python "%INSTALL_DIR%\%SCRIPT_NAME%" %%*
 ) > "%BATCH_DIR%\squirk.bat"
 
-REM Überprüfen, ob das Verzeichnis bereits im PATH ist
 echo Checking if "%BATCH_DIR%" is in PATH...
 echo %PATH% | findstr /i /c:"%BATCH_DIR%" >nul
 if %ERRORLEVEL% == 0 (
@@ -29,9 +31,10 @@ if %ERRORLEVEL% == 0 (
     goto :update_complete
 )
 
-REM Verzeichnis zum PATH hinzufügen
 echo Adding "%BATCH_DIR%" to PATH...
-setx PATH "%PATH%;%BATCH_DIR%"
+set "OLD_PATH=%PATH%"
+set "NEW_PATH=%OLD_PATH%;%BATCH_DIR%"
+setx PATH "%NEW_PATH%"
 
 echo The PATH has been updated. You may need to restart your command prompt for the changes to take effect.
 

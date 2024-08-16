@@ -8,7 +8,6 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import time
 from datetime import datetime
 
-# Presets für verschiedene Dateitypen
 PRESETS = {
     ".py": "#!/usr/bin/env python\n\n\"\"\"Python Script\"\"\"\n\nif __name__ == '__main__':\n    pass\n",
     ".c": "#include <stdio.h>\n\nint main() {\n    // Your code here\n    return 0;\n}\n",
@@ -22,11 +21,11 @@ PRESETS = {
 
 def show_help():
     print("SQUIRK Help")
-    print("--help                                                       Show this help message.")
-    print("--presets                                                    List all available file presets.")
-    print("--server start                                               Starts/Stops a local SQUIRK Server.")
-    print('init <project_name> <author> "<description>" <info - yes/no>   Initialize a new SQUIRK project.')
-    print('initf "<folder>" <type> <name> <preset>                      Create a new file in the specified folder with the given type.')
+    print("--help                                                           Show this help message.")
+    print("--presets                                                        List all available file presets.")
+    print("--server start                                                   Starts/Stops a local SQUIRK Server.")
+    print('init <project_name> <author> "<description>" <info - yes/no>     Initialize a new SQUIRK project.')
+    print('initf "<folder>" <type> <name> <preset>                          Create a new file in the specified folder with the given type.')
 
 hostName = "localhost"
 serverPort = 5000
@@ -96,15 +95,12 @@ def init_project(project_name, author=None, description=None, create_markdown=Fa
         print("Error: No project name provided.")
         return
     
-    # Überprüfen, ob das Skript mit Administratorrechten ausgeführt wird
     if not is_admin():
         print("Error: Initializing a project requires administrator privileges.")
         return
     
-    # Verzeichnis für Projekte in Program Files
     projects_dir = os.path.join(os.environ["ProgramFiles"], "SQUIRK", "Projects")
     
-    # Überprüfen, ob das Verzeichnis existiert, und ggf. erstellen
     if not os.path.exists(projects_dir):
         os.makedirs(projects_dir)
     
@@ -116,18 +112,15 @@ def init_project(project_name, author=None, description=None, create_markdown=Fa
         os.makedirs(project_path)
         print(f"Project '{project_name}' initialized successfully at '{project_path}'.")
         
-        # INSTRUCTIONS.txt Datei erstellen
         create_instructions_file(project_path)
-        # metadata.json Datei erstellen
         create_metadata_file(project_path, author, description)
         
-        # INFORMATION.md Datei erstellen, wenn gewünscht
         if create_markdown:
             create_information_file(project_path, description)
 
 def create_file(folder, file_type, name, preset=None):
     """Erstellt eine Datei im angegebenen Ordner mit dem spezifizierten Dateityp."""
-    folder = folder.strip('"')  # Entferne potenzielle Anführungszeichen
+    folder = folder.strip('"')
     
     if not os.path.exists(folder):
         print(f"Error: Folder '{folder}' does not exist.")
@@ -180,7 +173,6 @@ def main():
             if len(sys.argv) > 2:
                 project_name = sys.argv[2]
                 author = sys.argv[3] if len(sys.argv) > 3 else None
-                # Parsing description and markdown creation flag
                 description_args = []
                 create_markdown = False
                 if len(sys.argv) > 4:
