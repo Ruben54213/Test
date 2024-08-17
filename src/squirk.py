@@ -2,11 +2,9 @@
 
 import sys
 import os
-import ctypes
 import json
-from http.server import BaseHTTPRequestHandler, HTTPServer
-import time
 from datetime import datetime
+from http.server import BaseHTTPRequestHandler, HTTPServer
 import urllib.parse
 import mimetypes
 
@@ -14,6 +12,7 @@ hostName = "localhost"
 serverPort = 5000
 
 PRESETS = {
+    ".sqrk": "",
     ".py": "#!/usr/bin/env python\n\n\"\"\"Python Script\"\"\"\n\nif __name__ == '__main__':\n    pass\n",
     ".c": "#include <stdio.h>\n\nint main() {\n    // Your code here\n    return 0;\n}\n",
     ".js": "// JavaScript File\n\nfunction main() {\n    // Your code here\n}\n\nmain();\n",
@@ -59,11 +58,13 @@ PRESETS = {
 
 def show_help():
     print("SQUIRK Help")
+    print("-- version                                                          Displays the current version.")
     print("--help                                                              Show this help message.")
     print("--presets                                                           List all available file presets.")
     print('--server start "<directory>"                                        Starts/Stops a local SQUIRK Server in the specified directory.')
     print('init <project_name> <author> "<description>" <info - yes/no>        Initialize a new SQUIRK project.')
     print('initf "<directory>" <type> <name> <preset>                          Create a new file in the specified folder with the given type.')
+    print('run <file.sqrk>                                                     Run a .sqrk file.')
 
 def show_presets():
     """Zeigt die verfügbaren Presets an."""
@@ -85,18 +86,26 @@ def create_instructions_file(project_path):
     with open(instructions_path, "w") as file:
         file.write(instructions_content)
 
-def create_metadata_file(project_path, author=None, description=None):
-    """Erstellt die metadata.json Datei im angegebenen Projektpfad."""
-    metadata = {
+def create_fpindex_file(project_path, author=None, description=None):
+    """Erstellt die fpindex.sqrk Datei im angegebenen Projektpfad."""
+    fpindex = {
+        "key": "fpindexp",
+        "name": "fpindex.sqrk",
         "author": author if author else "Unknown",
         "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "description": description if description else ""
     }
 
-    metadata_path = os.path.join(project_path, "metadata.json")
+    metadata_path = os.path.join(project_path, "fpindex.sqrk")
     with open(metadata_path, "w") as file:
-        json.dump(metadata, file, indent=4)
-    print(f"metadata.json file created in '{project_path}'.")
+        file.write('[\n')
+        file.write(f'    "key": "{fpindex["key"]}",\n')
+        file.write(f'    "name": "{fpindex["name"]}",\n')
+        file.write(f'    "author": "{fpindex["author"]}",\n')
+        file.write(f'    "date": "{fpindex["date"]}",\n')
+        file.write(f'    "description": "{fpindex["description"]}"\n')
+        file.write(']')
+    print(f"fpindex.sqrk file created in '{project_path}'.")
 
 def create_information_file(project_path, description):
     """Erstellt die INFORMATION.md Datei im angegebenen Projektpfad."""
@@ -120,172 +129,161 @@ def init_project(project_name, author=None, description=None, create_markdown=Fa
     
     project_path = os.path.join(projects_dir, project_name)
     
-    if not os.path.exists(project_path):
-        os.makedirs(project_path)
-        create_instructions_file(project_path)
-        create_metadata_file(project_path, author, description)
-        if create_markdown:
-            create_information_file(project_path, description)
-        print(f"Project '{project_name}' created successfully in '{project_path}'.")
-    else:
-        print(f"Error: Project '{project_name}' already exists in '{project_path}'.")
-
-def create_file(folder, file_type, name, preset=None):
-    """Erstellt eine neue Datei im angegebenen Ordner mit dem angegebenen Typ und Namen."""
-    if not os.path.exists(folder):
-        print(f"Error: Folder '{folder}' does not exist.")
+    if os.path.exists(project_path):
+        print(f"Error: Project '{project_name}' already exists.")
         return
     
-    file_path = os.path.join(folder, f"{name}{file_type}")
-
-    if os.path.exists(file_path):
-        print(f"Error: File '{file_path}' already exists.")
-        return
+    os.makedirs(project_path)
+    create_instructions_file(project_path)
+    create_fpindex_file(project_path, author, description)
     
-    with open(file_path, "w") as file:
-        if preset and preset in PRESETS:
-            file.write(PRESETS[preset])
-        else:
-            file.write(f"# {name} - {file_type}\n\n")
+    if create_markdown:
+        create_information_file(project_path, description)
+    
+    print(f"Project '{project_name}' initialized successfully in '{project_path}'.")
 
-    print(f"File '{file_path}' created successfully.")
-
-class MyServer(BaseHTTPRequestHandler):
-    def log_message(self, format, *args):
-        """Log to server.log file."""
-        log_path = os.path.join(self.server.server_directory, "LOGGING", "server.log")
-        with open(log_path, "a") as log_file:
-            log_file.write(f"{self.log_date_time_string()} - {format % args}\n")
-
-    def do_GET(self):
-        """Serve a file from the server directory."""
-        self.server.server_directory = os.path.abspath(self.server.server_directory)
-        parsed_path = urllib.parse.urlparse(self.path)
-        
-        # Handle root path request
-        if parsed_path.path == '/':
-            parsed_path = urllib.parse.urlparse('/index.html')
-        
-        file_path = os.path.join(self.server.server_directory, parsed_path.path.strip("/"))
-
-        if os.path.isfile(file_path):
-            try:
-                with open(file_path, 'rb') as file:
-                    self.send_response(200)
-                    self.send_header("Content-type", self.guess_type(file_path))
-                    self.end_headers()
-                    self.wfile.write(file.read())
-            except IOError:
-                self.send_error(404, "File not found")
-        else:
-            self.send_error(404, "File not found")
-
-    def guess_type(self, path):
-        """Guess the MIME type based on file extension."""
-        return mimetypes.guess_type(path)[0] or "application/octet-stream"
-
-def create_welcome_file(directory):
-    """Erstellt die src/index.html Datei mit einem Willkommenstext."""
-    index_path = os.path.join(directory, "index.html")
-    welcome_content = (
-        "<!DOCTYPE html>\n"
-        "<html>\n"
-        "<head>\n"
-        "    <title>Welcome</title>\n"
-        "</head>\n"
-        "<body>\n"
-        "    <h1>Welcome to SQUIRK Server</h1>\n"
-        "    <p>Your SQUIRK server is up and running!</p>\n"
-        "</body>\n"
-        "</html>\n"
-    )
-
-    with open(index_path, "w") as file:
-        file.write(welcome_content)
-    print(f"Welcome file created at '{index_path}'.")
-
-def start_server(directory):
-    if not os.path.isdir(directory):
+def create_file(directory, file_type, name, preset=None):
+    """Erstellt eine neue Datei im angegebenen Verzeichnis."""
+    if not os.path.exists(directory):
         print(f"Error: Directory '{directory}' does not exist.")
         return
 
-    # Create the welcome file
-    create_welcome_file(directory)
+    file_name = f"{name}{file_type}"
+    file_path = os.path.join(directory, file_name)
 
-    log_dir = os.path.join(directory, "LOGGING")
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
-    
-    log_path = os.path.join(log_dir, "server.log")
-    if not os.path.isfile(log_path):
-        with open(log_path, "w") as log_file:
-            log_file.write("Server Log Initialized\n")
+    if os.path.exists(file_path):
+        print(f"Error: File '{file_name}' already exists in directory '{directory}'.")
+        return
 
-    server_address = (hostName, serverPort)
-    httpd = HTTPServer(server_address, MyServer)
-    httpd.server_directory = directory
-    
-    print(f"Server started at http://{hostName}:{serverPort} with directory '{directory}'")
-    print(f"Logging to '{log_path}'")
-    
+    with open(file_path, "w") as file:
+        content = PRESETS.get(preset, "") if preset else PRESETS.get(file_type, "")
+        file.write(content)
+    print(f"File '{file_name}' created successfully in '{directory}'.")
+
+def run_squirk_file(file_path):
+    """Führt eine .sqrk-Datei aus und gibt deren Inhalt aus, wenn sie dem erwarteten Format entspricht."""
+
+    if not os.path.exists(file_path):
+        print(f"Error: File '{file_path}' does not exist.")
+        return
+
+    if not file_path.endswith(".sqrk"):
+        print(f"Error: File '{file_path}' is not a .sqrk file.")
+        return
+
     try:
-        httpd.serve_forever()
+        with open(file_path, 'r') as file:
+            content = file.read().strip()
+        
+        if not (content.startswith('[') and content.endswith(']')):
+            print("Error: File content does not start and end with brackets.")
+            return
+        
+        content = content[1:-1].strip()
+        if not content:
+            print("Error: File content is empty after removing brackets.")
+            return
+        
+        lines = content.split('\n')
+        
+        data = {}
+        for line in lines:
+            line = line.strip()
+            if line:
+                if ':' not in line:
+                    print(f"Error: Line does not contain ':' - {line}")
+                    return
+                
+                key, value = line.split(':', 1)
+                key = key.strip()
+                value = value.strip()
+                
+                data[key] = value
+        
+        if 'key' not in data:
+            print("Error: Missing required key 'key'")
+            return
+        
+        if 'name' not in data:
+            print("Error: Missing required key 'name'")
+            return
+        
+        expected_name = os.path.splitext(os.path.basename(file_path))[0]
+        
+        if data['name'] != expected_name:
+            print(f"Error: The 'name' value '{data['name']}' does not match the file name '{expected_name}'.")
+            return
+        
+        print(f"key: {data['key']}")
+        print(f"name: {data['name']}")
+        
+        additional_keys = [k for k in data if k not in ['key', 'name']]
+        if additional_keys:
+            for key in additional_keys:
+                print(f"{key}: {data[key]}")
+    
+    except IOError as e:
+        print(f"Error: Unable to read file '{file_path}'. {e}")
+
+def run_server(directory):
+    """Startet einen lokalen SQUIRK-Server."""
+    os.chdir(directory)
+    webServer = HTTPServer((hostName, serverPort), MyServer)
+    print(f"Server started at http://{hostName}:{serverPort}")
+
+    try:
+        webServer.serve_forever()
     except KeyboardInterrupt:
         pass
-    finally:
-        httpd.server_close()
-        print("Server stopped.")
 
-def parse_description(description_args):
-    """Parst die Beschreibung aus den Argumenten."""
-    return ' '.join(description_args).strip('"')
+    webServer.server_close()
+    print("Server stopped.")
 
-def main():
-    if len(sys.argv) > 1:
-        if sys.argv[1] == "--help":
-            show_help()
-        elif sys.argv[1] == "--version":
-            print("Current version: Alpha v.0.1.0")
-        elif sys.argv[1] == "--presets":
-            show_presets()
-        elif sys.argv[1] == "--server":
-            if len(sys.argv) > 2 and sys.argv[2] == "start":
-                if len(sys.argv) > 3:
-                    directory = sys.argv[3]
-                    start_server(directory)
-                else:
-                    print("Error: No directory specified.")
-            else:
-                print("Unknown command. Use --help for available commands.")
-        elif sys.argv[1] == "init":
-            if len(sys.argv) > 2:
-                project_name = sys.argv[2]
-                author = sys.argv[3] if len(sys.argv) > 3 else None
-                description_args = []
-                create_markdown = False
-                if len(sys.argv) > 4:
-                    if sys.argv[-1].lower() in ['yes', 'no']:
-                        create_markdown = sys.argv[-1].lower() == 'yes'
-                        description_args = sys.argv[4:-1]
-                    else:
-                        description_args = sys.argv[4:]
-                description = parse_description(description_args)
-                init_project(project_name, author, description, create_markdown)
-            else:
-                print("Error: No project name provided.")
-        elif sys.argv[1] == "initf":
-            if len(sys.argv) > 4:
-                folder = sys.argv[2]
-                file_type = sys.argv[3]
-                name = sys.argv[4]
-                preset = sys.argv[5] if len(sys.argv) > 5 else None
-                create_file(folder, file_type, name, preset)
-            else:
-                print("Error: Insufficient arguments for 'initf'.")
+class MyServer(BaseHTTPRequestHandler):
+    def do_GET(self):
+        parsed_path = urllib.parse.urlparse(self.path)
+        file_path = parsed_path.path.strip("/")
+
+        if not file_path:
+            file_path = "index.html"
+
+        if os.path.exists(file_path):
+            self.send_response(200)
+            self.send_header("Content-type", mimetypes.guess_type(file_path)[0])
+            self.end_headers()
+
+            with open(file_path, "rb") as file:
+                self.wfile.write(file.read())
         else:
-            print("Unknown command. Use --help for available commands.")
-    else:
-        print("Unknown command. Use --help for available commands.")
+            self.send_response(404)
+            self.end_headers()
+            self.wfile.write(b"404 - File not found")
 
 if __name__ == "__main__":
-    main()
+    args = sys.argv[1:]
+
+    if not args:
+        print("Error: No arguments provided. Use --help for more information.")
+    elif "--help" in args:
+        show_help()
+    elif "--version" in args:
+        print("Current version: v.0.2.1")
+    elif "--presets" in args:
+        show_presets()
+    elif args[0] == "init" and len(args) == 5:
+        init_project(args[1], args[2], args[3], args[4].lower() == "yes")
+    elif args[0] == "initf" and len(args) >= 4:
+        directory = args[1]
+        file_type = args[2]
+        name = args[3]
+        preset = args[4] if len(args) == 5 else None
+        create_file(directory, file_type, name, preset)
+    elif args[0] == "server" and len(args) == 3:
+        if args[1] == "start":
+            run_server(args[2])
+        else:
+            print("Error: Invalid server command. Use 'start'.")
+    elif args[0] == "run" and len(args) == 2:
+        run_squirk_file(args[1])
+    else:
+        print("Error: Invalid command. Use --help for more information.")

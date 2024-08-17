@@ -24,6 +24,14 @@ echo Creating batch file "squirk.bat"...
     echo python "%INSTALL_DIR%\%SCRIPT_NAME%" %%*
 ) > "%BATCH_DIR%\squirk.bat"
 
+set "EXT=.sqrk"
+set "DESCR=SQUIRK File"
+
+assoc %EXT%=SQUIRKFile
+ftype SQUIRKFile=notepad.exe "%%1"
+
+echo Dateityp '%EXT%' was connected with notepad.exe.
+
 echo Checking if "%BATCH_DIR%" is in PATH...
 echo %PATH% | findstr /i /c:"%BATCH_DIR%" >nul
 if %ERRORLEVEL% == 0 (
@@ -37,6 +45,7 @@ set "NEW_PATH=%OLD_PATH%;%BATCH_DIR%"
 setx PATH "%NEW_PATH%"
 
 echo The PATH has been updated. You may need to restart your command prompt for the changes to take effect.
+echo Please restart your computer, if you want changes to take place correctly.
 
 :update_complete
 echo Installation complete.
