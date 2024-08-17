@@ -3,6 +3,8 @@
 import sys
 import os
 import json
+import shutil
+import subprocess
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import urllib.parse
@@ -12,7 +14,7 @@ hostName = "localhost"
 serverPort = 5000
 
 PRESETS = {
-    ".sqrk": "",
+    ".sqrk": "[\nkey: mykey\nname: {yourfilename without ending}\nsource: value\n]",
     ".py": "#!/usr/bin/env python\n\n\"\"\"Python Script\"\"\"\n\nif __name__ == '__main__':\n    pass\n",
     ".c": "#include <stdio.h>\n\nint main() {\n    // Your code here\n    return 0;\n}\n",
     ".js": "// JavaScript File\n\nfunction main() {\n    // Your code here\n}\n\nmain();\n",
@@ -58,13 +60,15 @@ PRESETS = {
 
 def show_help():
     print("SQUIRK Help")
-    print("-- version                                                          Displays the current version.")
-    print("--help                                                              Show this help message.")
-    print("--presets                                                           List all available file presets.")
-    print('--server start "<directory>"                                        Starts/Stops a local SQUIRK Server in the specified directory.')
-    print('init <project_name> <author> "<description>" <info - yes/no>        Initialize a new SQUIRK project.')
-    print('initf "<directory>" <type> <name> <preset>                          Create a new file in the specified folder with the given type.')
-    print('run <file.sqrk>                                                     Run a .sqrk file.')
+    print("--version                                                                              Displays the current version.")
+    print("--help                                                                                 Show this help message.")
+    print("--presets                                                                              List all available file presets.")
+    print('--server start "<directory>"                                                           Starts/Stops a local SQUIRK Server in the specified directory.')
+    print('--init <project_name> <author> "<description>" <info - yes/no> <git - yes/no>          Initialize a new SQUIRK project.')
+    print("--projectbackup <project_name>                                                         Creates a .zip file with a project backup.")
+    print('--initf "<directory>" <type> <name> <preset>                                           Create a new file in the specified folder with the given type.')
+    print('--run <file.sqrk>                                                                      Run a .sqrk file.')
+    print("--listp                                                                                Lists all projects created in the project folder.")
 
 def show_presets():
     """Zeigt die verfügbaren Presets an."""
@@ -73,7 +77,7 @@ def show_presets():
         print(f"{ext}")
 
 def create_instructions_file(project_path):
-    """Erstellt die INSTRUCTIONS.txt Datei im angegebenen Projektpfad."""
+    """Erstellt die INSTRUCTIONS.txt Datei im angegebenen Projektpfad innerhalb von 'assets/project_files'."""
     instructions_content = (
         "SQUIRK - PROJECT INSTRUCTIONS\n"
         "You have successfully created a SQUIRK project. You can now add as many files as you like. To create a new file, use the command:\n\n"
@@ -86,8 +90,23 @@ def create_instructions_file(project_path):
     with open(instructions_path, "w") as file:
         file.write(instructions_content)
 
+def list_projects():
+    """Listet alle vorhandenen Projekte im SQUIRK-Projektverzeichnis auf."""
+    projects_dir = os.path.join("C:\\", "SQUIRK", "Projects")
+    if not os.path.exists(projects_dir):
+        print("No projects directory found.")
+        return
+
+    projects = [name for name in os.listdir(projects_dir) if os.path.isdir(os.path.join(projects_dir, name))]
+    if projects:
+        print("Projects:")
+        for project in projects:
+            print(f" - {project}")
+    else:
+        print("No projects found.")
+
 def create_fpindex_file(project_path, author=None, description=None):
-    """Erstellt die fpindex.sqrk Datei im angegebenen Projektpfad."""
+    """Erstellt die fpindex.sqrk Datei im angegebenen Projektpfad innerhalb von 'assets/project_files'."""
     fpindex = {
         "key": "fpindexp",
         "name": "fpindex.sqrk",
@@ -108,7 +127,7 @@ def create_fpindex_file(project_path, author=None, description=None):
     print(f"fpindex.sqrk file created in '{project_path}'.")
 
 def create_information_file(project_path, description):
-    """Erstellt die INFORMATION.md Datei im angegebenen Projektpfad."""
+    """Erstellt die INFORMATION.md Datei im angegebenen Projektpfad innerhalb von 'assets/project_files'."""
     information_content = f"# Project Information\n\n{description}\n"
 
     information_path = os.path.join(project_path, "INFORMATION.md")
@@ -116,8 +135,43 @@ def create_information_file(project_path, description):
         file.write(information_content)
     print(f"INFORMATION.md file created in '{project_path}'.")
 
-def init_project(project_name, author=None, description=None, create_markdown=False):
-    """Initialisiert ein neues SQUIRK-Projekt."""
+def backup_project(project_name):
+    """Erstellt ein Backup eines Projekts in einem Zip-Archiv."""
+    projects_dir = os.path.join("C:\\", "SQUIRK", "Projects")
+    project_path = os.path.join(projects_dir, project_name)
+    
+    if not os.path.exists(project_path):
+        print(f"Error: Project '{project_name}' does not exist.")
+        return
+    
+    backup_path = os.path.join(projects_dir, f"{project_name}_backup.zip")
+    
+    shutil.make_archive(backup_path.replace('.zip', ''), 'zip', project_path)
+    print(f"Backup created at '{backup_path}'.")
+    
+def initialize_git_repository(project_path):
+    """Initialisiert ein Git-Repository im angegebenen Projektpfad und erstellt ein erstes Commit."""
+    try:
+        # Wechsel in das Projektverzeichnis
+        subprocess.run(['git', 'init'], cwd=project_path, check=True)
+        
+        # Erstelle eine README.md
+        readme_path = os.path.join(project_path, "README.md")
+        with open(readme_path, "w") as readme_file:
+            readme_file.write(f"# {os.path.basename(project_path)}\n\n{os.path.basename(project_path)} project initialized.")
+        
+        # Füge alle Dateien zum Staging-Bereich hinzu
+        subprocess.run(['git', 'add', '.'], cwd=project_path, check=True)
+        
+        # Erstelle den ersten Commit
+        subprocess.run(['git', 'commit', '-m', 'Initial commit'], cwd=project_path, check=True)
+        
+        print(f"Git repository initialized in '{project_path}'.")
+    except subprocess.CalledProcessError as e:
+        print(f"Error initializing Git repository: {e}")
+    
+def init_project(project_name, author=None, description=None, create_markdown=False, create_git_repo=False):
+    """Initialisiert ein neues SQUIRK-Projekt mit zusätzlichen Verzeichnissen und speichert Projektdateien in 'assets/project_files'."""
     if not project_name:
         print("Error: No project name provided.")
         return
@@ -134,13 +188,21 @@ def init_project(project_name, author=None, description=None, create_markdown=Fa
         return
     
     os.makedirs(project_path)
-    create_instructions_file(project_path)
-    create_fpindex_file(project_path, author, description)
+    
+    # Erstelle zusätzliche Verzeichnisse
+    for folder in ['src', 'docs', 'tests', 'assets/project_files']:
+        os.makedirs(os.path.join(project_path, folder))
+    
+    create_instructions_file(os.path.join(project_path, 'assets', 'project_files'))
+    create_fpindex_file(os.path.join(project_path, 'assets', 'project_files'), author, description)
     
     if create_markdown:
-        create_information_file(project_path, description)
+        create_information_file(os.path.join(project_path, 'assets', 'project_files'), description)
     
     print(f"Project '{project_name}' initialized successfully in '{project_path}'.")
+
+    if create_git_repo:
+        initialize_git_repository(project_path)
 
 def create_file(directory, file_type, name, preset=None):
     """Erstellt eine neue Datei im angegebenen Verzeichnis."""
@@ -270,20 +332,29 @@ if __name__ == "__main__":
         print("Current version: v.0.2.1")
     elif "--presets" in args:
         show_presets()
-    elif args[0] == "init" and len(args) == 5:
-        init_project(args[1], args[2], args[3], args[4].lower() == "yes")
-    elif args[0] == "initf" and len(args) >= 4:
+    elif "--listp" in args:
+        list_projects()
+    elif args[0] == "--init" and len(args) >= 4:
+        project_name = args[1]
+        author = args[2]
+        description = args[3]
+        create_markdown = args[4].lower() == "yes" if len(args) > 4 else False
+        create_git_repo = len(args) > 4 and args[-1].lower() == "yes"
+        init_project(project_name, author, description, create_markdown, create_git_repo)
+    elif args[0] == "--initf" and len(args) >= 4:
         directory = args[1]
         file_type = args[2]
         name = args[3]
         preset = args[4] if len(args) == 5 else None
         create_file(directory, file_type, name, preset)
-    elif args[0] == "server" and len(args) == 3:
+    elif args[0] == "--server" and len(args) == 3:
         if args[1] == "start":
             run_server(args[2])
         else:
             print("Error: Invalid server command. Use 'start'.")
-    elif args[0] == "run" and len(args) == 2:
+    elif args[0] == "--run" and len(args) == 2:
         run_squirk_file(args[1])
+    elif args[0] == "--projectbackup" and len(args) == 2:
+        backup_project(args[1])    
     else:
         print("Error: Invalid command. Use --help for more information.")
